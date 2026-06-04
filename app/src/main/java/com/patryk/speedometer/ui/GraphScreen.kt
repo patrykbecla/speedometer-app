@@ -29,7 +29,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.google.maps.android.compose.MapType
 import com.patrykandpatrick.vico.compose.axis.horizontal.rememberBottomAxis
 import com.patrykandpatrick.vico.compose.axis.vertical.rememberStartAxis
 import com.patrykandpatrick.vico.compose.chart.Chart
@@ -80,7 +79,6 @@ fun SessionDetailScreen(
 
     var selectedTab by remember { mutableIntStateOf(0) }
     var showExportMenu by remember { mutableStateOf(false) }
-    var mapType by remember { mutableStateOf(MapType.TERRAIN) }
 
     Column(modifier = modifier.fillMaxSize()) {
         // Toolbar
@@ -147,27 +145,15 @@ fun SessionDetailScreen(
                     .weight(1f)
                     .fillMaxWidth(),
             )
-            1 -> Box(
+            1 -> TrackMap(
+                samples = samples,
+                currentLatLng = null,
+                maxSpeedMps = session?.maxSpeedMps ?: 0f,
+                follow = false,
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth(),
-            ) {
-                TrackMap(
-                    samples = samples,
-                    currentLatLng = null,
-                    maxSpeedMps = session?.maxSpeedMps ?: 0f,
-                    follow = false,
-                    mapType = mapType,
-                    modifier = Modifier.fillMaxSize(),
-                )
-                MapTypeToggle(
-                    current = mapType,
-                    onToggle = { mapType = it },
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .padding(8.dp),
-                )
-            }
+            )
         }
     }
 }

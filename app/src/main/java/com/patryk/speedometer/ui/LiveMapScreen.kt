@@ -9,15 +9,12 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.google.android.gms.maps.model.LatLng
-import com.google.maps.android.compose.MapType
 import com.patryk.speedometer.SpeedViewModel
 import com.patryk.speedometer.data.RecordingState
 import kotlinx.coroutines.flow.flowOf
@@ -30,7 +27,6 @@ fun LiveMapScreen(
 ) {
     val speedState by viewModel.speed.collectAsStateWithLifecycle()
     val recordingState by viewModel.recordingState.collectAsStateWithLifecycle()
-    var mapType by remember { mutableStateOf(MapType.TERRAIN) }
 
     val activeSessionId = (recordingState as? RecordingState.Recording)?.sessionId
     val liveSamples by remember(activeSessionId) {
@@ -46,7 +42,7 @@ fun LiveMapScreen(
             currentLatLng = currentLatLng,
             maxSpeedMps = speedState.maxSpeedMps,
             follow = true,
-            mapType = mapType,
+            showMyLocation = true,
             modifier = Modifier.fillMaxSize(),
         )
 
@@ -58,13 +54,5 @@ fun LiveMapScreen(
         ) {
             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
         }
-
-        MapTypeToggle(
-            current = mapType,
-            onToggle = { mapType = it },
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .padding(8.dp),
-        )
     }
 }
