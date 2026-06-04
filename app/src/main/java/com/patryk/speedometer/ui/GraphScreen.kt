@@ -15,10 +15,13 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -26,6 +29,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.google.maps.android.compose.MapType
 import com.patrykandpatrick.vico.compose.axis.horizontal.rememberBottomAxis
 import com.patrykandpatrick.vico.compose.axis.vertical.rememberStartAxis
 import com.patrykandpatrick.vico.compose.chart.Chart
@@ -34,13 +38,35 @@ import com.patrykandpatrick.vico.core.entry.ChartEntryModelProducer
 import com.patrykandpatrick.vico.core.entry.entryOf
 import com.patryk.speedometer.SpeedViewModel
 import com.patryk.speedometer.data.SpeedUnit
+import com.patryk.speedometer.data.db.Sample
 import com.patryk.speedometer.data.db.Session
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+// Legacy alias kept so callers using the name "GraphScreen" continue to compile.
+// MainActivity uses this name in its when-block.
 @Composable
 fun GraphScreen(
+    sessionId: Long,
+    viewModel: SpeedViewModel,
+    unit: SpeedUnit,
+    onBack: () -> Unit,
+    onExportCsv: () -> Unit,
+    onExportGpx: () -> Unit,
+    modifier: Modifier = Modifier,
+) = SessionDetailScreen(
+    sessionId = sessionId,
+    viewModel = viewModel,
+    unit = unit,
+    onBack = onBack,
+    onExportCsv = onExportCsv,
+    onExportGpx = onExportGpx,
+    modifier = modifier,
+)
+
+@Composable
+fun SessionDetailScreen(
     sessionId: Long,
     viewModel: SpeedViewModel,
     unit: SpeedUnit,
@@ -52,23 +78,12 @@ fun GraphScreen(
     val session by viewModel.sessionFlow(sessionId).collectAsStateWithLifecycle(null)
     val samples by viewModel.sessionSamples(sessionId).collectAsStateWithLifecycle(emptyList())
 
-    val producer = remember { ChartEntryModelProducer() }
+    var selectedTab by remember { mutableIntStateOf(0) }
     var showExportMenu by remember { mutableStateOf(false) }
-
-    LaunchedEffect(samples, unit) {
-        if (samples.isNotEmpty()) {
-            val startMs = samples.first().timestampMs
-            val entries = samples.map { s ->
-                entryOf(
-                    (s.timestampMs - startMs) / 1000f,
-                    unit.convert(s.speedMps),
-                )
-            }
-            producer.setEntries(listOf(entries))
-        }
-    }
+    var mapType by remember { mutableStateOf(MapType.TERRAIN) }
 
     Column(modifier = modifier.fillMaxSize()) {
+        // Toolbar
         Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.padding(end = 4.dp),
@@ -111,23 +126,88 @@ fun GraphScreen(
             }
         }
 
-        if (samples.isEmpty()) {
-            Box(
-                modifier = Modifier.weight(1f).fillMaxWidth(),
-                contentAlignment = Alignment.Center,
-            ) { CircularProgressIndicator() }
-        } else {
-            Chart(
-                chart = lineChart(),
-                chartModelProducer = producer,
-                startAxis = rememberStartAxis(title = unit.label),
-                bottomAxis = rememberBottomAxis(title = "seconds"),
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth()
-                    .padding(16.dp),
+        TabRow(selectedTabIndex = selectedTab) {
+            Tab(
+                selected = selectedTab == 0,
+                onClick = { selectedTab = 0 },
+                text = { Text("Graph") },
+            )
+            Tab(
+                selected = selectedTab == 1,
+                onClick = { selectedTab = 1 },
+                text = { Text("Map") },
             )
         }
+
+        when (selectedTab) {
+            0 -> SpeedChart(
+                samples = samples,
+                unit = unit,
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth(),
+            )
+            1 -> Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth(),
+            ) {
+                TrackMap(
+                    samples = samples,
+                    currentLatLng = null,
+                    maxSpeedMps = session?.maxSpeedMps ?: 0f,
+                    follow = false,
+                    mapType = mapType,
+                    modifier = Modifier.fillMaxSize(),
+                )
+                MapTypeToggle(
+                    current = mapType,
+                    onToggle = { mapType = it },
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(8.dp),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun SpeedChart(
+    samples: List<Sample>,
+    unit: SpeedUnit,
+    modifier: Modifier = Modifier,
+) {
+    val producer = remember { ChartEntryModelProducer() }
+
+    LaunchedEffect(samples, unit) {
+        if (samples.isNotEmpty()) {
+            val startMs = samples.first().timestampMs
+            val entries = samples.map { s ->
+                entryOf(
+                    (s.timestampMs - startMs) / 1000f,
+                    unit.convert(s.speedMps),
+                )
+            }
+            producer.setEntries(listOf(entries))
+        }
+    }
+
+    if (samples.isEmpty()) {
+        Box(
+            modifier = modifier.fillMaxWidth(),
+            contentAlignment = Alignment.Center,
+        ) { CircularProgressIndicator() }
+    } else {
+        Chart(
+            chart = lineChart(),
+            chartModelProducer = producer,
+            startAxis = rememberStartAxis(title = unit.label),
+            bottomAxis = rememberBottomAxis(title = "seconds"),
+            modifier = modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+        )
     }
 }
 

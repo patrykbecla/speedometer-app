@@ -17,6 +17,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.FiberManualRecord
 import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.RestartAlt
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.StopCircle
@@ -62,6 +63,7 @@ fun SpeedScreen(
     onRecordToggle: () -> Unit,
     onViewGraph: (() -> Unit)?,
     onOpenHistory: () -> Unit,
+    onOpenLiveMap: () -> Unit,
     onResetStats: () -> Unit,
     onIntervalChange: (Long) -> Unit,
     modifier: Modifier = Modifier,
@@ -93,6 +95,9 @@ fun SpeedScreen(
                     IconButton(onClick = onResetStats) {
                         Icon(Icons.Default.RestartAlt, contentDescription = "Reset stats")
                     }
+                }
+                IconButton(onClick = onOpenLiveMap) {
+                    Icon(Icons.Default.Map, contentDescription = "Live map")
                 }
                 IconButton(onClick = onOpenHistory) {
                     Icon(Icons.Default.History, contentDescription = "Session history")

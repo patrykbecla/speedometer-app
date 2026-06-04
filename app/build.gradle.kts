@@ -1,3 +1,9 @@
+import java.util.Properties
+
+val localProps = Properties().apply {
+    rootProject.file("local.properties").takeIf { it.exists() }?.inputStream()?.use { load(it) }
+}
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -15,6 +21,7 @@ android {
         targetSdk = 36
         versionCode = 1
         versionName = "0.1"
+        manifestPlaceholders["MAPS_API_KEY"] = localProps.getProperty("MAPS_API_KEY", "")
     }
 
     buildTypes {
@@ -59,5 +66,6 @@ dependencies {
     ksp(libs.room.compiler)
     implementation(libs.vico.compose.m3)
     implementation(libs.androidx.material.icons.extended)
+    implementation(libs.maps.compose)
     debugImplementation(libs.androidx.ui.tooling)
 }

@@ -38,6 +38,8 @@ data class SpeedUiState(
     val verticalSpeedMps: Float? = null,
     val signalQuality: SignalQuality = SignalQuality.UNKNOWN,
     val accuracyM: Float? = null,
+    val lat: Double? = null,
+    val lng: Double? = null,
 )
 
 class SpeedViewModel(app: Application) : AndroidViewModel(app) {
@@ -175,6 +177,8 @@ class SpeedViewModel(app: Application) : AndroidViewModel(app) {
             verticalSpeedMps = vertMps,
             signalQuality = location.signalQuality(),
             accuracyM = if (location.hasAccuracy()) location.accuracy else null,
+            lat = location.latitude,
+            lng = location.longitude,
         )
     }
 }

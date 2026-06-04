@@ -33,6 +33,7 @@ import com.patryk.speedometer.data.RecordingState
 import com.patryk.speedometer.service.RecordingService
 import com.patryk.speedometer.ui.GraphScreen
 import com.patryk.speedometer.ui.HistoryScreen
+import com.patryk.speedometer.ui.LiveMapScreen
 import com.patryk.speedometer.ui.LocationPermissionGate
 import com.patryk.speedometer.ui.SpeedScreen
 import com.patryk.speedometer.ui.SpeedometerTheme
@@ -41,6 +42,7 @@ sealed interface Screen {
     data object Speed : Screen
     data object History : Screen
     data class Graph(val sessionId: Long) : Screen
+    data object LiveMap : Screen
 }
 
 class MainActivity : ComponentActivity() {
@@ -148,6 +150,7 @@ private fun AppContent(viewModel: SpeedViewModel, modifier: Modifier = Modifier)
                 { push(Screen.Graph(lastSessionId!!)) }
             } else null,
             onOpenHistory = { push(Screen.History) },
+            onOpenLiveMap = { push(Screen.LiveMap) },
             onResetStats = viewModel::resetStats,
             onIntervalChange = viewModel::setSamplingInterval,
             modifier = modifier,
@@ -168,6 +171,11 @@ private fun AppContent(viewModel: SpeedViewModel, modifier: Modifier = Modifier)
             onBack = ::pop,
             onExportCsv = { viewModel.exportCsv(context, screen.sessionId) },
             onExportGpx = { viewModel.exportGpx(context, screen.sessionId) },
+            modifier = modifier,
+        )
+        Screen.LiveMap -> LiveMapScreen(
+            viewModel = viewModel,
+            onBack = ::pop,
             modifier = modifier,
         )
     }
