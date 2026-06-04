@@ -1,0 +1,4 @@
+<resources>
+    <!-- Base window theme used before Compose draws. Compose handles real colors. -->
+    <style name="Theme.Speedometer" parent="android:Theme.Material.NoActionBar" />
+</resources>

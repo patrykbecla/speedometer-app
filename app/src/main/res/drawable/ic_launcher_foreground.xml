@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- 270° gauge arc: lower-left → top → lower-right -->
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M30,78 A34,34 0 1,1 78,78"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="5"
+        android:strokeLineCap="round" />
+
+    <!-- Tick marks at min (lower-left), mid (top), max (lower-right) -->
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M30,78 L34,74 M54,20 L54,26 M78,78 L74,74"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="3.5"
+        android:strokeLineCap="round" />
+
+    <!-- Needle at ~70% speed (counterweight tail + tip) -->
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M48,59 L77,38"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="4.5"
+        android:strokeLineCap="round" />
+
+    <!-- Center pivot dot -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M49,54 a5,5 0 1,0 10,0 a5,5 0 1,0 -10,0" />
+
+</vector>
