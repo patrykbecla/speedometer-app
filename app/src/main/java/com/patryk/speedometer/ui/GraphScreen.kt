@@ -165,27 +165,33 @@ fun SpeedChart(
     modifier: Modifier = Modifier,
 ) {
     val producer = remember { ChartEntryModelProducer() }
+    var hasData by remember { mutableStateOf(false) }
 
     LaunchedEffect(samples, unit) {
-        if (samples.isNotEmpty()) {
-            val startMs = samples.first().timestampMs
-            val entries = samples.map { s ->
-                entryOf(
-                    (s.timestampMs - startMs) / 1000f,
-                    unit.convert(s.speedMps),
-                )
-            }
-            producer.setEntries(listOf(entries))
+        hasData = false
+        // Find first sample with a real speed; anything before that is a
+        // pre-GPS-lock artefact. If no non-zero sample exists, bail out.
+        val first = samples.indexOfFirst { it.speedMps > 0f }
+        if (first == -1) return@LaunchedEffect
+        val chartSamples = if (first > 0) samples.drop(first) else samples
+
+        val startMs = chartSamples.first().timestampMs
+        val intervalMs = if (chartSamples.size > 1)
+            (chartSamples.last().timestampMs - chartSamples.first().timestampMs) / (chartSamples.size - 1)
+        else 1000L
+        val smoothed = despike(chartSamples.map { it.speedMps }, intervalMs)
+        val entries = chartSamples.indices.map { i ->
+            entryOf(
+                (chartSamples[i].timestampMs - startMs) / 1000f,
+                unit.convert(smoothed[i]),
+            )
         }
+        producer.setEntries(listOf(entries))
+        hasData = true
     }
 
-    if (samples.isEmpty()) {
-        Box(
-            modifier = modifier.fillMaxWidth(),
-            contentAlignment = Alignment.Center,
-        ) { CircularProgressIndicator() }
-    } else {
-        Chart(
+    when {
+        hasData -> Chart(
             chart = lineChart(),
             chartModelProducer = producer,
             startAxis = rememberStartAxis(title = unit.label),
@@ -194,6 +200,14 @@ fun SpeedChart(
                 .fillMaxWidth()
                 .padding(16.dp),
         )
+        samples.isNotEmpty() -> Box(
+            modifier = modifier.fillMaxWidth(),
+            contentAlignment = Alignment.Center,
+        ) { Text("No GPS data recorded", style = MaterialTheme.typography.bodyLarge) }
+        else -> Box(
+            modifier = modifier.fillMaxWidth(),
+            contentAlignment = Alignment.Center,
+        ) { CircularProgressIndicator() }
     }
 }
 
@@ -205,6 +219,36 @@ private fun buildStats(session: Session, unit: SpeedUnit): String {
     val avg = "%.1f ${unit.label}".format(unit.convert(session.avgSpeedMps))
     val dist = formatDistance(session.distanceM, unit)
     return "Max $max  ·  Avg $avg  ·  $dist"
+}
+
+/**
+ * 3-point median filter with interval-gated downward filtering.
+ *
+ * Upward spikes (speed[i] above both neighbors) are always replaced with the
+ * median — no vehicle sustains 2× its normal speed for exactly one sample then
+ * instantly recovers, so these are always GPS errors.
+ *
+ * Downward dips (speed[i] below both neighbors, e.g. a glitched zero) are only
+ * replaced when the sampling interval is ≤ 2 s. At longer intervals a genuine
+ * stop (e.g. 5 s pause while jogging at 5 s sample rate) is a single-sample
+ * dip that is indistinguishable from a glitch, so we leave it alone.
+ */
+private fun despike(speeds: List<Float>, samplingIntervalMs: Long): List<Float> {
+    if (speeds.size < 3) return speeds
+    return List(speeds.size) { i ->
+        when {
+            i == 0 || i == speeds.size - 1 -> speeds[i]
+            else -> {
+                val a = speeds[i - 1]; val b = speeds[i]; val c = speeds[i + 1]
+                val median = maxOf(minOf(a, b), minOf(maxOf(a, b), c))
+                when {
+                    b > a && b > c -> median                              // upward: always filter
+                    b < a && b < c && samplingIntervalMs <= 2_000L -> median  // downward: short interval only
+                    else -> b
+                }
+            }
+        }
+    }
 }
 
 private fun formatDistance(meters: Double, unit: SpeedUnit): String = when (unit) {

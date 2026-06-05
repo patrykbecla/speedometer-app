@@ -78,6 +78,8 @@ class RecordingService : Service() {
     }
 
     private suspend fun handleLocation(loc: Location) {
+        if (!loc.hasSpeed()) return   // skip pre-lock fixes; graph requires valid speed data
+
         lastStats = accumulator.add(loc)
 
         // Persist raw (unclamped) speed so CSV/GPX export stays faithful.

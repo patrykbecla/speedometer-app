@@ -32,7 +32,6 @@ class TripAccumulator {
     private var maxMps = 0f
     private var totalDistanceM = 0.0
     private var prevLocation: Location? = null
-    private var firstFixTimeMs = -1L
 
     fun reset() {
         speedSamples = 0
@@ -40,7 +39,6 @@ class TripAccumulator {
         maxMps = 0f
         totalDistanceM = 0.0
         prevLocation = null
-        firstFixTimeMs = -1L
     }
 
     fun add(location: Location): TripStats {
@@ -54,10 +52,7 @@ class TripAccumulator {
             else -> raw
         }
 
-        if (firstFixTimeMs == -1L) firstFixTimeMs = location.time
-        val warmedUp = (location.time - firstFixTimeMs) >= WARMUP_MS
-
-        if (warmedUp && clamped != null && clamped > 0f) {
+        if (clamped != null && clamped > 0f) {
             if (clamped > maxMps) maxMps = clamped
             speedSumMps += clamped
             speedSamples++
@@ -94,6 +89,5 @@ class TripAccumulator {
         const val MAX_ACCURACY_M = 20f
         const val MAX_STEP_FACTOR = 1.5
         const val MAX_DT_SEC = 10.0
-        const val WARMUP_MS = 5_000L
     }
 }
