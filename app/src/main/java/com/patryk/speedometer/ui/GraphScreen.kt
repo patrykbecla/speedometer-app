@@ -166,6 +166,7 @@ fun SpeedChart(
 ) {
     val producer = remember { ChartEntryModelProducer() }
     var hasData by remember { mutableStateOf(false) }
+    var xAxisLabel by remember { mutableStateOf("seconds") }
 
     LaunchedEffect(samples, unit) {
         hasData = false
@@ -176,17 +177,32 @@ fun SpeedChart(
         val chartSamples = if (first > 0) samples.drop(first) else samples
 
         val startMs = chartSamples.first().timestampMs
-        val intervalMs = if (chartSamples.size > 1)
-            (chartSamples.last().timestampMs - chartSamples.first().timestampMs) / (chartSamples.size - 1)
+        val durationMs = chartSamples.last().timestampMs - startMs
+        val useMinutes = durationMs >= 5 * 60 * 1000L
+        xAxisLabel = if (useMinutes) "minutes" else "seconds"
+        val xDivisor = if (useMinutes) 60_000f else 1_000f
+
+        val samplesToPlot = try {
+            lttb(chartSamples, 500)
+        } catch (_: Exception) {
+            chartSamples
+        }
+        val intervalMs = if (samplesToPlot.size > 1)
+            (samplesToPlot.last().timestampMs - samplesToPlot.first().timestampMs) / (samplesToPlot.size - 1)
         else 1000L
-        val smoothed = despike(chartSamples.map { it.speedMps }, intervalMs)
-        val entries = chartSamples.indices.map { i ->
+        val smoothed = despike(samplesToPlot.map { it.speedMps }, intervalMs)
+        val entries = samplesToPlot.indices.map { i ->
             entryOf(
-                (chartSamples[i].timestampMs - startMs) / 1000f,
+                (samplesToPlot[i].timestampMs - startMs) / xDivisor,
                 unit.convert(smoothed[i]),
             )
         }
-        producer.setEntries(listOf(entries))
+        if (entries.isEmpty()) return@LaunchedEffect
+        // setEntriesSuspending waits for Vico's background model transformation to finish
+        // before returning, so cachedInternalModel is set when hasData = true and Chart
+        // enters composition. setEntries() (non-suspend) starts the transformation async
+        // and can complete before Chart subscribes, causing the model delivery to be missed.
+        producer.setEntriesSuspending(listOf(entries))
         hasData = true
     }
 
@@ -195,7 +211,7 @@ fun SpeedChart(
             chart = lineChart(),
             chartModelProducer = producer,
             startAxis = rememberStartAxis(title = unit.label),
-            bottomAxis = rememberBottomAxis(title = "seconds"),
+            bottomAxis = rememberBottomAxis(title = xAxisLabel),
             modifier = modifier
                 .fillMaxWidth()
                 .padding(16.dp),
@@ -249,6 +265,53 @@ private fun despike(speeds: List<Float>, samplingIntervalMs: Long): List<Float> 
             }
         }
     }
+}
+
+/**
+ * Largest-Triangle-Three-Buckets downsampling. Reduces [samples] to at most [threshold] points
+ * while preserving visually salient peaks and troughs. Uses sample index as the x-coordinate
+ * for the triangle area calculation (timestamps are uniform enough that index works well).
+ */
+private fun lttb(samples: List<Sample>, threshold: Int): List<Sample> {
+    if (samples.size <= threshold) return samples
+    val result = ArrayList<Sample>(threshold)
+    result.add(samples.first())
+
+    val bucketSize = (samples.size - 2).toDouble() / (threshold - 2)
+    var prevSelectedIdx = 0
+
+    for (i in 1 until threshold - 1) {
+        val bucketStart = ((i - 1) * bucketSize + 1).toInt()
+        val bucketEnd = (i * bucketSize + 1).toInt().coerceAtMost(samples.size - 1)
+
+        // Average of the next bucket — forms the apex of the triangle.
+        val nextStart = bucketEnd
+        val nextEnd = ((i + 1) * bucketSize + 1).toInt().coerceAtMost(samples.size)
+        var sumY = 0.0
+        var count = 0
+        for (k in nextStart until nextEnd) { sumY += samples[k].speedMps; count++ }
+        val avgNextX = (nextStart + nextEnd - 1) / 2.0
+        val avgNextY = if (count > 0) sumY / count else 0.0
+
+        val aX = prevSelectedIdx.toDouble()
+        val aY = result.last().speedMps.toDouble()
+        var maxArea = -1.0
+        var selectedIdx = bucketStart
+
+        for (j in bucketStart until bucketEnd) {
+            val bX = j.toDouble(); val bY = samples[j].speedMps.toDouble()
+            val area = Math.abs(
+                aX * (bY - avgNextY) + bX * (avgNextY - aY) + avgNextX * (aY - bY)
+            ) * 0.5
+            if (area > maxArea) { maxArea = area; selectedIdx = j }
+        }
+
+        result.add(samples[selectedIdx])
+        prevSelectedIdx = selectedIdx
+    }
+
+    result.add(samples.last())
+    return result
 }
 
 private fun formatDistance(meters: Double, unit: SpeedUnit): String = when (unit) {
